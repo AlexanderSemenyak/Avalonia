@@ -8,21 +8,6 @@ using Avalonia.Platform;
 
 namespace Avalonia.Web.Blazor
 {
-    internal class ClipboardStub : IClipboard
-    {
-        public Task<string> GetTextAsync() => Task.FromResult("");
-
-        public Task SetTextAsync(string text) => Task.CompletedTask;
-
-        public Task ClearAsync() => Task.CompletedTask;
-
-        public Task SetDataObjectAsync(IDataObject data) => Task.CompletedTask;
-
-        public Task<string[]> GetFormatsAsync() => Task.FromResult(Array.Empty<string>());
-
-        public Task<object> GetDataAsync(string format) => Task.FromResult<object>(new ());
-    }
-
     internal class IconLoaderStub : IPlatformIconLoader
     {
         private class IconStub : IWindowIconImpl
@@ -38,15 +23,6 @@ namespace Avalonia.Web.Blazor
         public IWindowIconImpl LoadIcon(Stream stream) => new IconStub();
 
         public IWindowIconImpl LoadIcon(IBitmapImpl bitmap) => new IconStub();
-    }
-
-    internal class SystemDialogsStub : ISystemDialogImpl
-    {
-        public Task<string[]?> ShowFileDialogAsync(FileDialog dialog, Window parent) =>
-            Task.FromResult((string[]?)null);
-
-        public Task<string?> ShowFolderDialogAsync(OpenFolderDialog dialog, Window parent) =>
-            Task.FromResult((string?)null);
     }
 
     internal class ScreenStub : IScreenImpl

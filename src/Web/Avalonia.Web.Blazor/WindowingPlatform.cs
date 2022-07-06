@@ -34,14 +34,13 @@ namespace Avalonia.Web.Blazor
             var instance = new BlazorWindowingPlatform();
             s_keyboard = new KeyboardDevice();
             AvaloniaLocator.CurrentMutable
-                .Bind<IClipboard>().ToSingleton<ClipboardStub>()
+                .Bind<IClipboard>().ToSingleton<ClipboardImpl>()
                 .Bind<ICursorFactory>().ToSingleton<CssCursorFactory>()
                 .Bind<IKeyboardDevice>().ToConstant(s_keyboard)
                 .Bind<IPlatformSettings>().ToConstant(instance)
                 .Bind<IPlatformThreadingInterface>().ToConstant(instance)
                 .Bind<IRenderLoop>().ToConstant(new RenderLoop())
                 .Bind<IRenderTimer>().ToConstant(ManualTriggerRenderTimer.Instance)
-                .Bind<ISystemDialogImpl>().ToSingleton<SystemDialogsStub>()
                 .Bind<IWindowingPlatform>().ToConstant(instance)
                 .Bind<IPlatformIconLoader>().ToSingleton<IconLoaderStub>()
                 .Bind<PlatformHotkeyConfiguration>().ToSingleton<PlatformHotkeyConfiguration>();

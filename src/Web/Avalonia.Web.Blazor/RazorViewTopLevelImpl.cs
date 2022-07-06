@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Input.TextInput;
 using Avalonia.Platform;
+using Avalonia.Platform.Storage;
 using Avalonia.Rendering;
 using Avalonia.Web.Blazor.Interop;
 using SkiaSharp;
@@ -13,22 +14,24 @@ using SkiaSharp;
 
 namespace Avalonia.Web.Blazor
 {
-    internal class RazorViewTopLevelImpl : ITopLevelImplWithTextInputMethod
+    internal class RazorViewTopLevelImpl : ITopLevelImplWithTextInputMethod, ITopLevelImplWithNativeControlHost, ITopLevelImplWithStorageProvider
     {
         private Size _clientSize;
-        private BlazorSkiaSurface? _currentSurface;
+        private IBlazorSkiaSurface? _currentSurface;
         private IInputRoot? _inputRoot;
         private readonly Stopwatch _sw = Stopwatch.StartNew();
-        private readonly ITextInputMethodImpl _textInputMethod;
+        private readonly AvaloniaView _avaloniaView;
         private readonly TouchDevice _touchDevice;
+        private readonly PenDevice _penDevice;
         private string _currentCursor = CssCursor.Default;
 
-        public RazorViewTopLevelImpl(ITextInputMethodImpl textInputMethod)
+        public RazorViewTopLevelImpl(AvaloniaView avaloniaView)
         {
-            _textInputMethod = textInputMethod;
+            _avaloniaView = avaloniaView;
             TransparencyLevel = WindowTransparencyLevel.None;
             AcrylicCompensationLevels = new AcrylicPlatformCompensationLevels(1, 1, 1);
             _touchDevice = new TouchDevice();
+            _penDevice = new PenDevice();
         }
 
         public ulong Timestamp => (ulong)_sw.ElapsedMilliseconds;
@@ -38,6 +41,11 @@ namespace Avalonia.Web.Blazor
         {
             _currentSurface =
                 new BlazorSkiaSurface(context, glInfo, colorType, size, scaling, GRSurfaceOrigin.BottomLeft);
+        }
+
+        internal void SetSurface(SKColorType colorType, PixelSize size, double scaling, Action<IntPtr, SKSizeI> blitCallback)
+        {
+            _currentSurface = new BlazorSkiaRasterSurface(colorType, size, scaling, blitCallback);
         }
 
         public void SetClientSize(SKSize size, double dpi)
@@ -67,20 +75,33 @@ namespace Avalonia.Web.Blazor
             }
         }
 
-        public void RawTouchEvent(RawPointerEventType type, Point p, RawInputModifiers modifiers, long touchPointId)
+        public void RawPointerEvent(
+            RawPointerEventType eventType, string pointerType,
+            RawPointerPoint p, RawInputModifiers modifiers, long touchPointId)
         {
-            if (_inputRoot is { })
+            if (_inputRoot is { }
+                && Input is { } input)
             {
-                Input?.Invoke(new RawTouchEventArgs(_touchDevice, Timestamp, _inputRoot, type, p, modifiers, touchPointId));
+                var device = GetPointerDevice(pointerType);
+                var args = device is TouchDevice ?
+                    new RawTouchEventArgs(device, Timestamp, _inputRoot, eventType, p, modifiers, touchPointId) :
+                    new RawPointerEventArgs(device, Timestamp, _inputRoot, eventType, p, modifiers)
+                    {
+                        RawPointerId = touchPointId
+                    };
+
+                input.Invoke(args);
             }
         }
 
-        public void RawMouseEvent(RawPointerEventType type, Point p, RawInputModifiers modifiers)
+        private IPointerDevice GetPointerDevice(string pointerType)
         {
-            if (_inputRoot is { })
+            return pointerType switch
             {
-                Input?.Invoke(new RawPointerEventArgs(MouseDevice, Timestamp, _inputRoot, type, p, modifiers));
-            }
+                "touch" => _touchDevice,
+                "pen" => _penDevice,
+                _ => MouseDevice
+            };
         }
 
         public void RawMouseWheelEvent(Point p, Vector v, RawInputModifiers modifiers)
@@ -91,9 +112,16 @@ namespace Avalonia.Web.Blazor
             }
         }
 
-        public void RawKeyboardEvent(RawKeyEventType type, string key, RawInputModifiers modifiers)
+        public void RawKeyboardEvent(RawKeyEventType type, string code, string key, RawInputModifiers modifiers)
         {
-            if (Keycodes.KeyCodes.TryGetValue(key, out var avkey))
+            if (Keycodes.KeyCodes.TryGetValue(code, out var avkey))
+            {
+                if (_inputRoot is { })
+                {
+                    Input?.Invoke(new RawKeyEventArgs(KeyboardDevice, Timestamp, _inputRoot, type, avkey, modifiers));
+                }
+            }
+            else if (Keycodes.KeyCodes.TryGetValue(key, out avkey))
             {
                 if (_inputRoot is { })
                 {
@@ -175,6 +203,9 @@ namespace Avalonia.Web.Blazor
         public WindowTransparencyLevel TransparencyLevel { get; }
         public AcrylicPlatformCompensationLevels AcrylicCompensationLevels { get; }
 
-        public ITextInputMethodImpl TextInputMethod => _textInputMethod;
+        public ITextInputMethodImpl TextInputMethod => _avaloniaView;
+
+        public INativeControlHostImpl? NativeControlHost => _avaloniaView.GetNativeControlHostImpl();
+        public IStorageProvider StorageProvider => _avaloniaView.GetStorageProvider();
     }
 }

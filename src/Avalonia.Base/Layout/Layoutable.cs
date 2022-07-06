@@ -141,7 +141,6 @@ namespace Avalonia.Layout
         static Layoutable()
         {
             AffectsMeasure<Layoutable>(
-                IsVisibleProperty,
                 WidthProperty,
                 HeightProperty,
                 MinWidthProperty,
@@ -549,6 +548,14 @@ namespace Avalonia.Layout
             if (IsVisible)
             {
                 var margin = Margin;
+                var useLayoutRounding = UseLayoutRounding;
+                var scale = 1.0;
+
+                if (useLayoutRounding)
+                {
+                    scale = LayoutHelper.GetLayoutScale(this);
+                    margin = LayoutHelper.RoundLayoutThickness(margin, scale, scale);
+                }
 
                 ApplyStyling();
                 ApplyTemplate();
@@ -585,15 +592,13 @@ namespace Avalonia.Layout
                 height = Math.Min(height, MaxHeight);
                 height = Math.Max(height, MinHeight);
 
+                if (useLayoutRounding)
+                {
+                    (width, height) = LayoutHelper.RoundLayoutSizeUp(new Size(width, height), scale, scale);
+                }
+
                 width = Math.Min(width, availableSize.Width);
                 height = Math.Min(height, availableSize.Height);
-
-                if (UseLayoutRounding)
-                {
-                    var scale = LayoutHelper.GetLayoutScale(this);
-                    width = LayoutHelper.RoundLayoutValue(width, scale);
-                    height = LayoutHelper.RoundLayoutValue(height, scale);
-                }
 
                 return NonNegative(new Size(width, height).Inflate(margin));
             }
@@ -679,8 +684,8 @@ namespace Avalonia.Layout
 
                 if (useLayoutRounding)
                 {
-                    size = LayoutHelper.RoundLayoutSize(size, scale, scale);
-                    availableSizeMinusMargins = LayoutHelper.RoundLayoutSize(availableSizeMinusMargins, scale, scale);
+                    size = LayoutHelper.RoundLayoutSizeUp(size, scale, scale);
+                    availableSizeMinusMargins = LayoutHelper.RoundLayoutSizeUp(availableSizeMinusMargins, scale, scale);
                 }
 
                 size = ArrangeOverride(size).Constrain(size);
@@ -789,6 +794,25 @@ namespace Avalonia.Layout
         /// </summary>
         protected virtual void OnMeasureInvalidated()
         {
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+
+            if (change.Property == IsVisibleProperty)
+            {
+                DesiredSize = default;
+
+                // All changes to visibility cause the parent element to be notified.
+                this.GetVisualParent<ILayoutable>()?.ChildDesiredSizeChanged(this);
+
+                // We only invalidate outselves when visibility is changed to true.
+                if (change.GetNewValue<bool>())
+                {
+                    InvalidateMeasure();
+                }
+            }
         }
 
         /// <inheritdoc/>

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Controls.Platform;
+using Avalonia.Dialogs;
 using Avalonia.FreeDesktop;
 using Avalonia.FreeDesktop.DBusIme;
 using Avalonia.Input;
@@ -15,7 +16,6 @@ using Avalonia.Platform;
 using Avalonia.Rendering;
 using Avalonia.X11;
 using Avalonia.X11.Glx;
-using Avalonia.X11.NativeDialogs;
 using static Avalonia.X11.XLib;
 
 namespace Avalonia.X11
@@ -80,7 +80,6 @@ namespace Avalonia.X11
                 .Bind<IClipboard>().ToConstant(new X11Clipboard(this))
                 .Bind<IPlatformSettings>().ToConstant(new PlatformSettingsStub())
                 .Bind<IPlatformIconLoader>().ToConstant(new X11IconLoader(Info))
-                .Bind<ISystemDialogImpl>().ToConstant(new GtkSystemDialog())
                 .Bind<IMountedVolumeInfoProvider>().ToConstant(new LinuxMountedVolumeInfoProvider())
                 .Bind<IPlatformLifetimeEventsImpl>().ToConstant(new X11PlatformLifetimeEvents(this));
             
@@ -209,10 +208,16 @@ namespace Avalonia
         public bool OverlayPopups { get; set; }
 
         /// <summary>
-        /// Enables global menu support on Linux desktop environments where it's supported (e. g. XFCE and MATE with plugin, KDE, etc).
-        /// The default value is false.
+        /// Enables native file dialogs as well as global menu support on Linux desktop environments where it's supported (e. g. XFCE and MATE with plugin, KDE, etc).
+        /// The default value is true.
         /// </summary>
-        public bool UseDBusMenu { get; set; }
+        public bool UseDBusMenu { get; set; } = true;
+
+        /// <summary>
+        /// Enables GTK file picker instead of default FreeDesktop.
+        /// The default value is true. And FreeDesktop file picker is used instead if available.
+        /// </summary>
+        public bool UseGtkFilePicker { get; set; } = false;
 
         /// <summary>
         /// Deferred renderer would be used when set to true. Immediate renderer when set to false. The default value is true.

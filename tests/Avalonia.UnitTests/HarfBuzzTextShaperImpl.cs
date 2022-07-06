@@ -15,7 +15,7 @@ namespace Avalonia.UnitTests
         {
             var typeface = options.Typeface;
             var fontRenderingEmSize = options.FontRenderingEmSize;
-            var bidiLevel = options.BidLevel;
+            var bidiLevel = options.BidiLevel;
             var culture = options.Culture;
 
             using (var buffer = new Buffer())
@@ -80,7 +80,7 @@ namespace Avalonia.UnitTests
             
             var second = glyphInfos[length - 1];
 
-            if (!new Codepoint((int)second.Codepoint).IsBreakChar)
+            if (!new Codepoint(second.Codepoint).IsBreakChar)
             {
                 return;
             }

@@ -171,13 +171,13 @@ namespace Avalonia.Controls
         /// <summary>
         /// Routed event that can be used for global tracking of window destruction
         /// </summary>
-        public static readonly RoutedEvent WindowClosedEvent =
+        public static readonly RoutedEvent<RoutedEventArgs> WindowClosedEvent =
             RoutedEvent.Register<Window, RoutedEventArgs>("WindowClosed", RoutingStrategies.Direct);
 
         /// <summary>
         /// Routed event that can be used for global tracking of opening windows
         /// </summary>
-        public static readonly RoutedEvent WindowOpenedEvent =
+        public static readonly RoutedEvent<RoutedEventArgs> WindowOpenedEvent =
             RoutedEvent.Register<Window, RoutedEventArgs>("WindowOpened", RoutingStrategies.Direct);
 
 
@@ -871,10 +871,10 @@ namespace Avalonia.Controls
 
             var scaling = owner?.DesktopScaling ?? PlatformImpl?.DesktopScaling ?? 1;
 
-            // TODO: We really need non-client size here.
-            var rect = new PixelRect(
-                PixelPoint.Origin,
-                PixelSize.FromSize(ClientSize, scaling));
+            // Use frame size, falling back to client size if the platform can't give it to us.
+            var rect = FrameSize.HasValue ?
+                new PixelRect(PixelSize.FromSize(FrameSize.Value, scaling)) :
+                new PixelRect(PixelSize.FromSize(ClientSize, scaling));
 
             if (startupLocation == WindowStartupLocation.CenterScreen)
             {
@@ -901,10 +901,10 @@ namespace Avalonia.Controls
             {
                 if (owner != null)
                 {
-                    // TODO: We really need non-client size here.
+                    var ownerSize = owner.FrameSize ?? owner.ClientSize;
                     var ownerRect = new PixelRect(
                         owner.Position,
-                        PixelSize.FromSize(owner.ClientSize, scaling));
+                        PixelSize.FromSize(ownerSize, scaling));
                     Position = ownerRect.CenterRect(rect).Position;
                 }
             }
@@ -916,6 +916,15 @@ namespace Avalonia.Controls
             var clientSize = ClientSize;
             var constraint = clientSize;
             var maxAutoSize = PlatformImpl?.MaxAutoSizeHint ?? Size.Infinity;
+
+            if (MaxWidth > 0 && MaxWidth < maxAutoSize.Width)
+            {
+                maxAutoSize = maxAutoSize.WithWidth(MaxWidth);
+            }
+            if (MaxHeight > 0 && MaxHeight < maxAutoSize.Height)
+            {
+                maxAutoSize = maxAutoSize.WithHeight(MaxHeight);
+            }
 
             if (sizeToContent.HasAllFlags(SizeToContent.Width))
             {
@@ -982,28 +991,28 @@ namespace Avalonia.Controls
         /// <inheritdoc/>
         protected sealed override void HandleResized(Size clientSize, PlatformResizeReason reason)
         {
-            if (ClientSize == clientSize)
-                return;
-
-            var sizeToContent = SizeToContent;
-
-            // If auto-sizing is enabled, and the resize came from a user resize (or the reason was
-            // unspecified) then turn off auto-resizing for any window dimension that is not equal
-            // to the requested size.
-            if (sizeToContent != SizeToContent.Manual &&
-                CanResize &&
-                reason == PlatformResizeReason.Unspecified ||  
-                reason == PlatformResizeReason.User)
+            if (ClientSize != clientSize || double.IsNaN(Width) || double.IsNaN(Height))
             {
-                if (clientSize.Width != ClientSize.Width)
-                    sizeToContent &= ~SizeToContent.Width;
-                if (clientSize.Height != ClientSize.Height)
-                    sizeToContent &= ~SizeToContent.Height;
-                SizeToContent = sizeToContent;
-            }
+                var sizeToContent = SizeToContent;
 
-            Width = clientSize.Width;
-            Height = clientSize.Height;
+                // If auto-sizing is enabled, and the resize came from a user resize (or the reason was
+                // unspecified) then turn off auto-resizing for any window dimension that is not equal
+                // to the requested size.
+                if (sizeToContent != SizeToContent.Manual &&
+                    CanResize &&
+                    reason == PlatformResizeReason.Unspecified ||
+                    reason == PlatformResizeReason.User)
+                {
+                    if (clientSize.Width != ClientSize.Width)
+                        sizeToContent &= ~SizeToContent.Width;
+                    if (clientSize.Height != ClientSize.Height)
+                        sizeToContent &= ~SizeToContent.Height;
+                    SizeToContent = sizeToContent;
+                }
+
+                Width = clientSize.Width;
+                Height = clientSize.Height;
+            }
 
             base.HandleResized(clientSize, reason);
         }

@@ -7,6 +7,7 @@ using Android.Views.InputMethods;
 using Avalonia.Android.OpenGL;
 using Avalonia.Android.Platform.Specific;
 using Avalonia.Android.Platform.Specific.Helpers;
+using Avalonia.Android.Platform.Storage;
 using Avalonia.Controls;
 using Avalonia.Controls.Platform;
 using Avalonia.Controls.Platform.Surfaces;
@@ -16,11 +17,13 @@ using Avalonia.Input.TextInput;
 using Avalonia.OpenGL.Egl;
 using Avalonia.OpenGL.Surfaces;
 using Avalonia.Platform;
+using Avalonia.Platform.Storage;
 using Avalonia.Rendering;
 
 namespace Avalonia.Android.Platform.SkiaPlatform
 {
-    class TopLevelImpl : IAndroidView, ITopLevelImpl, EglGlPlatformSurfaceBase.IEglWindowGlPlatformSurfaceInfo, ITopLevelImplWithTextInputMethod
+    class TopLevelImpl : IAndroidView, ITopLevelImpl, EglGlPlatformSurfaceBase.IEglWindowGlPlatformSurfaceInfo,
+        ITopLevelImplWithTextInputMethod, ITopLevelImplWithNativeControlHost, ITopLevelImplWithStorageProvider
     {
         private readonly IGlPlatformSurface _gl;
         private readonly IFramebufferPlatformSurface _framebuffer;
@@ -30,9 +33,9 @@ namespace Avalonia.Android.Platform.SkiaPlatform
         private readonly ITextInputMethodImpl _textInputMethod;
         private ViewImpl _view;
 
-        public TopLevelImpl(Context context, bool placeOnTop = false)
+        public TopLevelImpl(AvaloniaView avaloniaView, bool placeOnTop = false)
         {
-            _view = new ViewImpl(context, this, placeOnTop);
+            _view = new ViewImpl(avaloniaView.Context, this, placeOnTop);
             _textInputMethod = new AndroidInputMethod<ViewImpl>(_view);
             _keyboardHelper = new AndroidKeyboardEventsHelper<TopLevelImpl>(this);
             _touchHelper = new AndroidTouchEventsHelper<TopLevelImpl>(this, () => InputRoot,
@@ -40,10 +43,13 @@ namespace Avalonia.Android.Platform.SkiaPlatform
             _gl = GlPlatformSurface.TryCreate(this);
             _framebuffer = new FramebufferManager(this);
 
-            RenderScaling = (int)_view.Scaling;
+            RenderScaling = _view.Scaling;
 
             MaxClientSize = new PixelSize(_view.Resources.DisplayMetrics.WidthPixels,
                 _view.Resources.DisplayMetrics.HeightPixels).ToSize(RenderScaling);
+
+            NativeControlHost = new AndroidNativeControlHostImpl(avaloniaView);
+            StorageProvider = new AndroidStorageProvider((AvaloniaActivity)avaloniaView.Context);
         }
 
         public virtual Point GetAvaloniaPointFromEvent(MotionEvent e, int pointerIndex) =>
@@ -221,6 +227,10 @@ namespace Avalonia.Android.Platform.SkiaPlatform
         public double Scaling => RenderScaling;
 
         public ITextInputMethodImpl TextInputMethod => _textInputMethod;
+
+        public INativeControlHostImpl NativeControlHost { get; }
+        
+        public IStorageProvider StorageProvider { get; }
 
         public void SetTransparencyLevelHint(WindowTransparencyLevel transparencyLevel)
         {

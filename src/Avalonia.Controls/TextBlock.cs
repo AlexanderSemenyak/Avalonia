@@ -113,7 +113,9 @@ namespace Avalonia.Controls
         /// Defines the <see cref="TextAlignment"/> property.
         /// </summary>
         public static readonly AttachedProperty<TextAlignment> TextAlignmentProperty =
-            AvaloniaProperty.RegisterAttached<TextBlock, Control, TextAlignment>(nameof(TextAlignment), 
+            AvaloniaProperty.RegisterAttached<TextBlock, Control, TextAlignment>(
+                nameof(TextAlignment), 
+                defaultValue: TextAlignment.Start,
                 inherits: true);
 
         /// <summary>
@@ -604,7 +606,9 @@ namespace Avalonia.Controls
                 return new Size();
             }
 
-            var padding = Padding;
+            var scale = LayoutHelper.GetLayoutScale(this);
+
+            var padding = LayoutHelper.RoundLayoutThickness(Padding, scale, scale);
 
             _constraint = availableSize.Deflate(padding);
 
@@ -612,23 +616,28 @@ namespace Avalonia.Controls
 
             InvalidateArrange();
 
-            var measuredSize = PixelSize.FromSize(TextLayout.Bounds.Size, 1);
+            var measuredSize = TextLayout.Bounds.Size.Inflate(padding);
 
-            return new Size(measuredSize.Width, measuredSize.Height).Inflate(padding);
+            return measuredSize;
         }
 
         protected override Size ArrangeOverride(Size finalSize)
         {
+            if(finalSize.Width < TextLayout.Bounds.Width)
+            {
+                finalSize = finalSize.WithWidth(TextLayout.Bounds.Width);
+            }
+
             if (MathUtilities.AreClose(_constraint.Width, finalSize.Width))
             {
                 return finalSize;
             }
 
-            var padding = Padding;
+            var scale = LayoutHelper.GetLayoutScale(this);
 
-            var textSize = finalSize.Deflate(padding);
+            var padding = LayoutHelper.RoundLayoutThickness(Padding, scale, scale);
 
-            _constraint = new Size(textSize.Width, Math.Ceiling(textSize.Height));
+            _constraint = new Size(finalSize.Deflate(padding).Width, double.PositiveInfinity);
 
             _textLayout = null;
 
@@ -741,14 +750,14 @@ namespace Avalonia.Controls
             {
                 if (textSourceIndex > _text.Length)
                 {
-                    return null;
+                    return new TextEndOfParagraph();
                 }
 
                 var runText = _text.Skip(textSourceIndex);
 
                 if (runText.IsEmpty)
                 {
-                    return null;
+                    return new TextEndOfParagraph();
                 }
 
                 return new TextCharacters(runText, _defaultProperties);
